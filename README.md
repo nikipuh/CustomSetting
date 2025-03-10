@@ -42,7 +42,7 @@ CustomSetting is a PocketMine-MP plugin that provides a persistent custom form f
 You can combine multiple formatting codes for creative text styling:
 - `§l§9Bold Blue Text`
 - `§c§oRed Italic Text`
-- `§6§l§nGold Bold Underlined Text`
+- `§6Gold Text`
 
 ## Icon Configuration
 
