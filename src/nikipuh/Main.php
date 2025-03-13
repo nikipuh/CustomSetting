@@ -17,11 +17,11 @@ class Main extends PluginBase implements Listener {
      //incase the player bought his device from temu
      //and it takes 10 seconds to open the settings
     
-     /** @var int */
-     private $currentIndex = 0;
+     /** @var array<string, int> */
+     private array $playerIndices = [];
      
-     /** @var \pocketmine\scheduler\TaskHandler|null */
-     private $taskHandler = null;
+     /** @var array<string, \pocketmine\scheduler\TaskHandler|null> */
+     private array $taskHandlers = [];
     
     /** @var string */
     private string $formJson;
@@ -101,21 +101,48 @@ class Main extends PluginBase implements Listener {
     }
 
     /**
+     * Stop all running tasks for a player
+     * @param Player $player
+     */
+    private function stopTasks(Player $player): void {
+        $name = $player->getName();
+        
+        if (isset($this->taskHandlers[$name]) && $this->taskHandlers[$name] !== null) {
+            $this->taskHandlers[$name]->cancel();
+            $this->taskHandlers[$name] = null;
+            $this->getLogger()->debug("Task for {$name} stopped");
+        }
+        
+        // Reset index
+        $this->playerIndices[$name] = 0;
+    }
+
+    /**
      * Schedule the next task to send the form again (times the amount of intervals)
      * @param Player $player The player to send the form to
      */
     public function scheduleNextTask(Player $player): void {
-        if ($this->currentIndex >= count($this->intervals)) {
+        $name = $player->getName();
+        
+        if (!isset($this->playerIndices[$name])) {
+            $this->playerIndices[$name] = 0;
+        }
+        
+        if ($this->playerIndices[$name] >= count($this->intervals)) {
             $this->getLogger()->debug("All intervals done, stopping the task");
             return; // stop the sequence after all intervals are done
         }
         
-        $interval = $this->intervals[$this->currentIndex];
-        $this->currentIndex++;
+        $interval = $this->intervals[$this->playerIndices[$name]];
+        $this->playerIndices[$name]++;
         
         $this->getLogger()->info("Planning task #{$interval} for " . $player->getName());
         
-        $this->taskHandler = $this->getScheduler()->scheduleDelayedTask(
+        if (isset($this->taskHandlers[$name]) && $this->taskHandlers[$name] !== null) {
+            $this->taskHandlers[$name]->cancel();
+        }
+        
+        $this->taskHandlers[$name] = $this->getScheduler()->scheduleDelayedTask(
             new class($this, $player) extends \pocketmine\scheduler\Task {
                 /** @var Main */
                 private $plugin;
@@ -131,7 +158,6 @@ class Main extends PluginBase implements Listener {
                     if ($this->player->isOnline()) {
                         $this->plugin->sendSettingsForm($this->player);
                         $this->plugin->scheduleNextTask($this->player);
-                        $this->plugin->getLogger()->debug("Preparing form for " . $this->player->getName());
                     }else{
                         $this->plugin->getLogger()->debug("Player " . $this->player->getName() . " is offline, cannot send form");
                     }
@@ -152,10 +178,12 @@ class Main extends PluginBase implements Listener {
             return;
         }
         
+        $name = $player->getName();
+        
         // Handle settings request packet (client opened settings)
         if ($packet instanceof ServerSettingsRequestPacket) {
-            // Reset index for new sequence
-            $this->currentIndex = 0;
+            // Stop any running tasks
+            $this->stopTasks($player);
             // Start the sequence of form sends
             $this->scheduleNextTask($player);
             $event->cancel(); // Mark as handled
@@ -171,6 +199,7 @@ class Main extends PluginBase implements Listener {
             
             if ($player->isOnline()) {
                 $this->getLogger()->debug("Caught ServerSettingsRequestPacket interaction (" . $player->getName() . " closed the settings)");
+                $this->stopTasks($player); // Stop tasks when form is closed
             }
         }
     }
@@ -185,6 +214,7 @@ class Main extends PluginBase implements Listener {
         
         if ($formData === "null") {
             $this->getLogger()->debug("Form response was null for " . $name);
+            $this->stopTasks($player); // Stop tasks when form is closed
             return; // Form was closed without submission
         }
         
