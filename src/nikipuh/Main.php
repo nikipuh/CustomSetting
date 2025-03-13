@@ -4,143 +4,146 @@ declare(strict_types=1);
 namespace nikipuh;
 
 use pocketmine\event\Listener;
-use pocketmine\event\player\PlayerJoinEvent;
-use pocketmine\event\player\PlayerQuitEvent;
 use pocketmine\event\server\DataPacketReceiveEvent;
 use pocketmine\network\mcpe\protocol\ServerSettingsRequestPacket;
 use pocketmine\network\mcpe\protocol\ServerSettingsResponsePacket;
 use pocketmine\network\mcpe\protocol\ModalFormResponsePacket;
 use pocketmine\plugin\PluginBase;
-use pocketmine\scheduler\ClosureTask;
 use pocketmine\player\Player;
-use pocketmine\utils\TextFormat as TF;
 
 class Main extends PluginBase implements Listener {
-    private $players = [];
+     /** @var array */
+     private $intervals = [1, 2, 3, 5, 10];
+     //incase the player bought his device from temu
+     //and it takes 10 seconds to open the settings
     
-    private $lastFormSendTime = [];
+     /** @var int */
+     private $currentIndex = 0;
+     
+     /** @var \pocketmine\scheduler\TaskHandler|null */
+     private $taskHandler = null;
     
-    private $formJson;
+    /** @var string */
+    private string $formJson;
     
-    private $baseFormId = 2024;
+    /** @var int Form ID constant */
+    private const SETTINGS_FORM_ID = 6969;
+    // Just a random number ;)
+
+    /** @var array<string, bool> */
+    private array $players = [];
 
     public function onEnable(): void {
         $this->getServer()->getPluginManager()->registerEvents($this, $this);
         
-        $this->saveDefaultConfig();
-        
         if (!is_dir($this->getDataFolder())) {
             mkdir($this->getDataFolder());
         }
-        $this->saveResource("form.json", false);
-        
-        $formPath = $this->getDataFolder() . "form.json";
-        if (!file_exists($formPath)) {
-            $this->getLogger()->critical("Cannot find form.json! Creating default...");
-            $defaultForm = [
-                "type" => "custom_form",
-                "title" => "§eHello world",
-                "icon" => [
-                    "type" => "path",
-                    "data" => "textures/items/cookie"
-                ],
-                "content" => [
-                    [
-                        "type" => "label",
-                        "text" => "Welcome to your custom setting page.\nYou can change, how this page looks in your form.json (plugin_data/CustomSetting/form.json)."
-                    ],
-                    [
-                        "type" => "label",
-                        "text" => "§l§cFORMATTING CODES REFERENCE:§r\n\n§0Black Text §1Dark Blue §2Dark Green §3Dark Aqua\n§4Dark Red §5Dark Purple §6Gold §7Gray\n§8Dark Gray §9Blue §aGreen §bAqua\n§cRed §dLight Purple §eYellow §fWhite\n\n§lBold Text§r §oItalic Text§r\n§kObfuscated Text§r §rReset Formatting\n\n§9Combine §l§9formatting §l§9§ocodes§r for §c§l§ncreative§r text!\n"
-                    ],
-                    [
-                        "type" => "label",
-                        "text" => "§l§cSERVER INFO§r\n\n§6Welcome to our Minecraft server!§r\n\n§bServer Rules:§r\n§a1. §fBe respectful to all players\n§a2. §fNo griefing or stealing\n§a3. §fNo hacking or using unfair advantages\n§a4. §fHave fun!\n\n§l§9SERVER FEATURES:§r\n§e• §dCustom enchantments\n§e• §dWeekly events\n§e• §dFriendly community\n§e• §dPlayer shops\n\n§o§7Contact us at example@server.com for support§r\n\n§l§2DONATION INFO:§r\n§fSupport our server by donating at §nwww.serverdonation.com§r\n\n§kMYSTERY TEXT§r §l§4IMPORTANT§r §o§5NOTICE§r\n\n§r"
-                    ]
-                ]
-            ];
-            $this->formJson = json_encode($defaultForm);
-            file_put_contents($formPath, $this->formJson);
-        } else {
-            $this->formJson = file_get_contents($formPath);
-            if (!$this->isValidJson($this->formJson)) {
-                $this->getLogger()->critical("Invalid JSON in form.json! Using default...");
-                $defaultForm = [
-                    "type" => "custom_form",
-                    "title" => "§eHello world",
-                    "icon" => [
-                        "type" => "path",
-                        "data" => "textures/items/cookie"
-                    ],
-                    "content" => [
-                        [
-                            "type" => "label",
-                            "text" => "Welcome to your custom setting page.\nYou can change, how this page looks in your form.json (plugin_data/CustomSetting/form.json)."
-                        ],
-                        [
-                            "type" => "label",
-                            "text" => "§l§cFORMATTING CODES REFERENCE:§r\n\n§0Black Text §1Dark Blue §2Dark Green §3Dark Aqua\n§4Dark Red §5Dark Purple §6Gold §7Gray\n§8Dark Gray §9Blue §aGreen §bAqua\n§cRed §dLight Purple §eYellow §fWhite\n\n§lBold Text§r §oItalic Text§r\n§kObfuscated Text§r §rReset Formatting\n\n§9Combine §l§9formatting §l§9§ocodes§r for §c§l§ncreative§r text!\n"
-                        ],
-                        [
-                            "type" => "label",
-                            "text" => "§l§cSERVER INFO§r\n\n§6Welcome to our Minecraft server!§r\n\n§bServer Rules:§r\n§a1. §fBe respectful to all players\n§a2. §fNo griefing or stealing\n§a3. §fNo hacking or using unfair advantages\n§a4. §fHave fun!\n\n§l§9SERVER FEATURES:§r\n§e• §dCustom enchantments\n§e• §dWeekly events\n§e• §dFriendly community\n§e• §dPlayer shops\n\n§o§7Contact us at example@server.com for support§r\n\n§l§2DONATION INFO:§r\n§fSupport our server by donating at §nwww.serverdonation.com§r\n\n§kMYSTERY TEXT§r §l§4IMPORTANT§r §o§5NOTICE§r\n\n§r"
-                        ]
-                    ]
-                ];
-                $this->formJson = json_encode($defaultForm);
-            }
-        }
-        
-        // Keep periodic refresh task for players who don't interact with the form
-        $this->getScheduler()->scheduleRepeatingTask(new ClosureTask(
-            function(): void {
-                $this->getLogger()->debug("Running form refresh check");
-                $currentTime = time();
-                foreach ($this->getServer()->getOnlinePlayers() as $player) {
-                    $name = $player->getName();
-                    
-                    if (!isset($this->lastFormSendTime[$name]) || ($currentTime - $this->lastFormSendTime[$name] >= 3)) {
-                        $this->sendSettingsForm($player);
-                    }
-                }
-            }
-        ), 60); // 60 ticks = 3 seconds
+
+        $this->loadFormJson();
     }
     
+    /**
+     * Load the form JSON from file or create default
+     */
+    private function loadFormJson(): void {
+        $this->saveResource("form.json", false);
+        $formPath = $this->getDataFolder() . "form.json";
+        
+        if (file_exists($formPath)) {
+            $content = file_get_contents($formPath);
+            if ($content !== false && $this->isValidJson($content)) {
+                $this->formJson = $content;
+                return;
+            }
+            $this->getLogger()->critical("Invalid JSON in form.json! Using default...");
+        } else {
+            $this->getLogger()->critical("Cannot find form.json! Creating default...");
+        }
+        
+        // Create default form
+        $defaultForm = $this->getDefaultForm();
+        $this->formJson = json_encode($defaultForm);
+        file_put_contents($formPath, $this->formJson);
+    }
+    
+    /**
+     * Get the default form data
+     * @return array
+     */
+    private function getDefaultForm(): array {
+        //Just incase the form.json is missing or invalid
+        //also made it smaller since i have all the formatting in the readme file :)
+        return [
+            "type" => "custom_form",
+            "title" => "§eServer Settings",
+            "icon" => [
+                "type" => "path",
+                "data" => "textures/items/cookie"
+            ],
+            "content" => [
+                [
+                    "type" => "label",
+                    "text" => "§lWelcome to your custom setting page.§r\n§7You can change how this page looks in form.json.\nCheck the README for more info."
+                ]
+            ]
+        ];
+    }
+    
+    /**
+     * Validate if a string is valid JSON
+     * @param string $json
+     * @return bool
+     */
     private function isValidJson(string $json): bool {
         json_decode($json);
         return json_last_error() === JSON_ERROR_NONE;
     }
 
-    public function onPlayerJoin(PlayerJoinEvent $event): void {
-        $player = $event->getPlayer();
-        $name = $player->getName();
+    /**
+     * Schedule the next task to send the form again (times the amount of intervals)
+     * @param Player $player The player to send the form to
+     */
+    public function scheduleNextTask(Player $player): void {
+        if ($this->currentIndex >= count($this->intervals)) {
+            $this->getLogger()->debug("All intervals done, stopping the task");
+            return; // stop the sequence after all intervals are done
+        }
         
-        $this->players[$name] = [
-            "formId" => $this->baseFormId,
-            "rotation" => 0
-        ];
+        $interval = $this->intervals[$this->currentIndex];
+        $this->currentIndex++;
         
-        // Send form after 3 seconds to wait for the player to fully join
-        $this->getScheduler()->scheduleDelayedTask(new ClosureTask(
-            function() use ($player, $name): void {
-                if ($player->isOnline()) {
-                    $this->sendSettingsForm($player, true);
-                    $this->getLogger()->debug("Initial settings form sent to $name");
+        $this->getLogger()->info("Planning task #{$interval} for " . $player->getName());
+        
+        $this->taskHandler = $this->getScheduler()->scheduleDelayedTask(
+            new class($this, $player) extends \pocketmine\scheduler\Task {
+                /** @var Main */
+                private $plugin;
+                /** @var Player */
+                private $player;
+                
+                public function __construct(Main $plugin, Player $player) {
+                    $this->plugin = $plugin;
+                    $this->player = $player;
                 }
-            }
-        ), 3);
+                
+                public function onRun(): void {
+                    if ($this->player->isOnline()) {
+                        $this->plugin->sendSettingsForm($this->player);
+                        $this->plugin->scheduleNextTask($this->player);
+                        $this->plugin->getLogger()->debug("Preparing form for " . $this->player->getName());
+                    }else{
+                        $this->plugin->getLogger()->debug("Player " . $this->player->getName() . " is offline, cannot send form");
+                    }
+                }
+            }, 
+            $interval * 20
+        );
     }
-    
-    public function onPlayerQuit(PlayerQuitEvent $event): void {
-        $name = $event->getPlayer()->getName();
-        
-        unset($this->players[$name]);
-        unset($this->lastFormSendTime[$name]);
-        
-        $this->getLogger()->debug("Cleaned up form data for $name");
-    }
-    
+  
+    /**
+     * Handle packets received from client
+     */
     public function onDataPacketReceive(DataPacketReceiveEvent $event): void {
         $packet = $event->getPacket();
         $player = $event->getOrigin()->getPlayer();
@@ -149,116 +152,91 @@ class Main extends PluginBase implements Listener {
             return;
         }
         
-        $name = $player->getName();
-        
+        // Handle settings request packet (client opened settings)
         if ($packet instanceof ServerSettingsRequestPacket) {
-            $this->getLogger()->debug("$name requested settings form");
-            // Send immediately with priority when user opens settings
-            $this->sendSettingsForm($player, true);
+            // Reset index for new sequence
+            $this->currentIndex = 0;
+            // Start the sequence of form sends
+            $this->scheduleNextTask($player);
+            $event->cancel(); // Mark as handled
+            $this->getLogger()->debug("Caught ServerSettingsRequestPacket (" . $player->getName() . " opened the settings)");
             return;
         }
         
-        if ($packet instanceof ModalFormResponsePacket) {
-            if (!isset($this->players[$name])) {
-                return;
-            }
+        // Handle form response packet (client submitted form/ opened the CustomSettings page)
+        if ($packet instanceof ModalFormResponsePacket && $packet->formId === self::SETTINGS_FORM_ID) {
+            $this->handleFormResponse($player, $packet->formData);
+            $this->getLogger()->debug("Caught response on Settings form by " . $player->getName() . " and sent it to handleFormResponse (Player opened the CustomSettings page)");
+            $event->cancel(); // Mark as handled
             
-            $formId = $packet->formId;
-            
-            $validIds = [];
-            for ($i = 0; $i < 10; $i++) {
-                $validIds[] = $this->baseFormId + $i;
-            }
-            
-            if (!in_array($formId, $validIds)) {
-                return;
-            }
-            
-            $this->getLogger()->debug("$name interacted with settings form (ID: $formId)");
-            
-            $formData = $packet->formData;
-            if ($formData !== "null") {
-                $this->getLogger()->debug("$name submitted data in settings form");
-                $data = json_decode($formData, true);
-            }
-            
-            $this->rotatePlayerFormId($name);
-            
-            // Send form immediately without scheduling
             if ($player->isOnline()) {
-                $this->sendSettingsForm($player, true);
+                $this->getLogger()->debug("Caught ServerSettingsRequestPacket interaction (" . $player->getName() . " closed the settings)");
             }
         }
     }
     
-    private function rotatePlayerFormId(string $playerName): void {
-        if (!isset($this->players[$playerName])) {
-            $this->players[$playerName] = [
-                "formId" => $this->baseFormId,
-                "rotation" => 0
-            ];
-            return;
-        }
-        
-        $currentRotation = $this->players[$playerName]["rotation"];
-        $newRotation = ($currentRotation + 1) % 10;
-        
-        $this->players[$playerName]["formId"] = $this->baseFormId + $newRotation;
-        $this->players[$playerName]["rotation"] = $newRotation;
-        
-        $this->getLogger()->debug("Rotated form ID for $playerName to " . $this->players[$playerName]["formId"]);
-    }
-    
-    // prevent spamming forms
-    private function verifyFormReceived(Player $player): bool {
-        if (!$player->isOnline()) {
-            return false;
-        }
-
-        $name = $player->getName();
-        if (!isset($this->lastFormSendTime[$name])) {
-            return false;
-        }
-        
-        $currentTime = time();
-        return ($currentTime - $this->lastFormSendTime[$name] < 3);
-    }
-    
-    public function sendSettingsForm(Player $player, bool $bypass_throttle = false): bool {
-        if (!$player->isOnline()) {
-            return false;
-        }
-        
+    /**
+     * Process form response data
+     * @param Player $player
+     * @param string $formData
+     */
+    private function handleFormResponse(Player $player, string $formData): void {
         $name = $player->getName();
         
-        // Check if player has received a form recently and bypass throttle if requested (when player opens settings)
-        if (!$bypass_throttle && $this->verifyFormReceived($player)) {
-            $this->getLogger()->debug("Player $name has already received a form recently.");
+        if ($formData === "null") {
+            $this->getLogger()->debug("Form response was null for " . $name);
+            return; // Form was closed without submission
+        }
+        
+        try {
+            // Try to decode the data as JSON first
+            $data = json_decode($formData, true);
+            
+            // If not valid JSON, try base64 decoding
+            if ($data === null && json_last_error() !== JSON_ERROR_NONE) {
+                $decodedData = base64_decode($formData, true);
+                if ($decodedData !== false) {
+                    $data = json_decode($decodedData, true);
+                }
+            }
+            
+            // Process form data here if needed
+            // Currently the form only has labels, but you can add interactive elements
+            // and process them here
+            
+        } catch (\Throwable $e) {
+            $this->getLogger()->error("Error processing form response: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Send settings form to player
+     * @param Player $player
+     * @return bool Success
+     */
+    public function sendSettingsForm(Player $player): bool {
+        if (!$player->isOnline()) {
+            $this->getLogger()->debug("Player " . $player->getName() . " is offline, cannot send form");
             return false;
         }
+        
+        $name = $player->getName();
 
         try {
-            if (!isset($this->players[$name])) {
-                $this->players[$name] = [
-                    "formId" => $this->baseFormId,
-                    "rotation" => 0
-                ];
-            }
+            // Track player
+            $this->players[$name] = true;
             
-            $formId = $this->players[$name]["formId"];
-            
+            // Create and send packet
             $pk = new ServerSettingsResponsePacket();
-            $pk->formId = $formId;
+            $pk->formId = self::SETTINGS_FORM_ID;
             $pk->formData = $this->formJson;
             
-            // Always send with highest priority when requested explicitly
-            $player->getNetworkSession()->sendDataPacket($pk, $bypass_throttle);
-            
-            $this->lastFormSendTime[$name] = time();
+            $player->getNetworkSession()->sendDataPacket($pk);
+            $this->getLogger()->debug("Sent CustomSetting to " . $name);
             
             return true;
         } catch (\Throwable $e) {
-            $this->getLogger()->error("Error sending settings form to $name: " . $e->getMessage());
+            $this->getLogger()->error("Error sending CustomSetting form: " . $e->getMessage());
             return false;
         }
     }
