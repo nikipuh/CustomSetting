@@ -199,7 +199,7 @@ class Main extends PluginBase implements Listener {
             
             if ($player->isOnline()) {
                 $this->getLogger()->debug("Caught ServerSettingsRequestPacket interaction (" . $player->getName() . " closed the settings)");
-                $this->stopTasks($player); // Stop tasks when form is closed
+                $this->stopTasks($player); // Stop tasks when settings menu is closed
             }
         }
     }
