@@ -1,13 +1,27 @@
 # CustomSetting Plugin
-![image](https://i.imgur.com/cEkzx5h.png)
-## Overview
 CustomSetting is a PocketMine-MP plugin that provides a persistent custom form for server settings, allowing you to create a customizable information page for your Minecraft Bedrock server.
+![image](https://i.imgur.com/cEkzx5h.png)
 
 ## Features
 - Settings form for all players
 - Customizable form content via `form.json`
 - Rich text formatting support
-- (New) Automatic form rotation to prevent client-side caching
+
+### How It Works:
+1. **Player Opens Settings**:
+   - The player accesses the settings menu on their device.
+
+2. **Plugin Detects and Sends Forms**:
+   - The plugin detects when the player opens the settings and immediately sends a series of **5 forms** (pre-configured settings pages) to the player.
+   - This ensures the player receives the forms, even if the initial form was sent before they opened the settings.
+
+3. **Handling Early Closure**:
+   - If the player closes the settings before all 5 forms are sent, the plugin detects this and **automatically stops sending forms**.
+
+### Key Points:
+- **Guaranteed Delivery**: Sending multiple forms ensures the player receives the settings, even if they experience a delay in opening the settings menu.
+- **Efficient Handling**: The plugin stops sending forms if the player closes the settings early, avoiding unnecessary actions.
+- **Fast Detection**: The plugin actively monitors the player's actions to ensure timely and efficient form delivery.
 
 ## Installation
 1. Download the plugin
