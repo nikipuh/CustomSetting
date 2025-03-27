@@ -1,8 +1,8 @@
 ---
 name: CustomSetting
-version: 1.3
+version: 1.4
 api: 5.0.0
-main: nikipuh\Main
+main: nikipuh\CustomSetting\Main
 author: Nikipuh
 ...
 

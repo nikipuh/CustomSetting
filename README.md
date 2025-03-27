@@ -28,6 +28,11 @@ CustomSetting is a PocketMine-MP plugin that provides a persistent custom form f
 2. Place in your server's `plugins/` directory
 3. Restart the server
 
+To edit the settings page, check the rest of my documentation. You can use color codes and set custom icons (such as your server logo).
+If you encounter any issues, feel free to post them on the GitHub repository.
+
+(!) If you want to create your own plugin or use another plugin that displays settings pages to clients (players), they may interfere with CustomSetting.
+
 ## Form Customization
 
 ### Text Formatting Codes
@@ -130,12 +135,16 @@ The plugin configuration is stored at:
 - Verify file permissions
 - The plugin will generate a default form if `form.json` is missing or invalid
 
-## Contributing
+### Contributing
 Contributions are welcome! Open an issue or submit a pull request.
 
 ## License
-This project is licensed under https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode 
+Copyright 2025 @nikipuh
 
-## Credits
-Created by nikipuh for the PocketMine-MP community <3
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+MIT License: https://opensource.org/license/mit

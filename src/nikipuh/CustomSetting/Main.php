@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace nikipuh;
+namespace nikipuh\CustomSetting;
 
 use pocketmine\event\Listener;
 use pocketmine\event\server\DataPacketReceiveEvent;
