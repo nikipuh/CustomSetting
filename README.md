@@ -1,6 +1,8 @@
 [![](https://poggit.pmmp.io/shield.state/CustomSetting)](https://poggit.pmmp.io/p/CustomSetting)
 [![](https://poggit.pmmp.io/shield.api/CustomSetting)](https://poggit.pmmp.io/p/CustomSetting)
 
+[![](https://poggit.pmmp.io/shield.dl.total/CustomSetting)](https://poggit.pmmp.io/p/CustomSetting)
+
 # CustomSetting Plugin
 CustomSetting is a PocketMine-MP plugin that provides a persistent custom form for server settings, allowing you to create a customizable information page for your Minecraft Bedrock server.
 ![image](https://i.imgur.com/cEkzx5h.png)
